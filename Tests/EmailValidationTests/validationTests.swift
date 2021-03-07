@@ -7,7 +7,7 @@ final class EmailValidationTests: XCTestCase {
     func testWorks() throws {
         let eventLoop = EmbeddedEventLoop()
         let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
-        let validator = EmailValidator(httpClient: httpClient, apiKey: "ADD_YOUR_API_KEY_HERE", eventLoop: eventLoop)
+        let validator = EmailValidatorAPI(httpClient: httpClient, apiKey: "ADD_YOUR_API_KEY_HERE", eventLoop: eventLoop)
         defer { try! httpClient.syncShutdown() }
 
         let response = try validator.validate(email: "email@email.com").wait()
