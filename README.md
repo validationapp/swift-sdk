@@ -26,11 +26,15 @@ If you are in a Vapor app, you can do something like this:
 ```swift 
 extension Request {
     var emailValidator: EmailValidator {
-        .init(
-            httpClient: self.application.http.client.shared,
-            apiKey: "ADD_YOUR_API_KEY_HERE",
-            eventLoop: self.eventLoop
-        )
+        if self.application.environment == .testing {
+            return MockEmailValidator(eventLoop: self.eventLoop)
+        } else {
+            return EmailValidatorAPI(
+                httpClient: self.application.http.client.shared,
+                apiKey: "ADD_YOUR_API_KEY_HERE",
+                eventLoop: self.eventLoop
+            )
+        }
     }
 }
 ```
