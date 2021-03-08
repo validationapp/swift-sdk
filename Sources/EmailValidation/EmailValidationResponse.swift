@@ -46,10 +46,10 @@ public struct EmailValidationResponse: Codable {
         public let passes_spoof_check: Bool
 
         /// The spam score for the email
-        public let spam_score: Int
+        public let spam_score: Double
 
         /// The domain risk for the email
-        public let domain_risk: Int
+        public let domain_risk: Double
 
         /// The network type for the email
         public let network_type: String?
