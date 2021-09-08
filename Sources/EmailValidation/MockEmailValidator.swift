@@ -9,18 +9,10 @@ import Foundation
 import NIO
 
 /// A mock email validator
+@available(macOS 12.0.0, *)
 public struct MockEmailValidator: EmailValidator {
-
-    /// The event loop to run the mock validator on
-    public let eventLoop: EventLoop
-
-    /// Initalizes a mock object
-    public init(eventLoop: EventLoop) {
-        self.eventLoop = eventLoop
-    }
-
     /// "Validates" the email
-    public func validate(email: String) -> EventLoopFuture<EmailValidationResponse> {
+    public func validate(email: String) async throws -> EmailValidationResponse {
         let mockResponse = EmailValidationResponse(
             data: .init(uuid: "",
                         request_email: "",
@@ -48,6 +40,6 @@ public struct MockEmailValidator: EmailValidator {
             )
         )
 
-        return eventLoop.makeSucceededFuture(mockResponse)
+        return mockResponse
     }
 }

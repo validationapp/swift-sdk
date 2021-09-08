@@ -10,6 +10,7 @@ import AsyncHTTPClient
 import NIO
 
 /// An object that can validate an email using the `validation.app` service
+@available(macOS 12.0.0, *)
 public struct EmailValidatorAPI: EmailValidator {
 
     /// The URL to send the request to
@@ -21,20 +22,16 @@ public struct EmailValidatorAPI: EmailValidator {
     /// The API Key for the `validation.app` service
     public let apiKey: String
 
-    /// The event loop to run the request on
-    public let eventLoop: EventLoop
-
     /// Initialize a new `EmailValidator`
-    public init(httpClient: HTTPClient, apiKey: String, eventLoop: EventLoop) {
+    public init(httpClient: HTTPClient, apiKey: String) {
         self.httpClient = httpClient
         self.apiKey = apiKey
-        self.eventLoop = eventLoop
     }
 
     /// Validate an email against the `validation.app` service
     /// - Parameter email: The email address to validate
     /// - Returns: An `EmailValidationResponse` object with the results of the API call
-    public func validate(email: String) -> EventLoopFuture<EmailValidationResponse> {
+    public func validate(email: String) async throws -> EmailValidationResponse {
         // Setup a date formatter to handle the custom date format from `validation.app`
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
@@ -48,7 +45,7 @@ public struct EmailValidatorAPI: EmailValidator {
         // Format the content and create the `Data` object from it
         let content = EmailValidationRequest(email: email)
         guard let requestData = try? jsonEncoder.encode(content) else {
-            return eventLoop.makeFailedFuture(EmailValidationError.cannotEncodeData)
+            throw EmailValidationError.cannotEncodeData
         }
 
         // Formulate the HTTPClient Request
@@ -59,16 +56,23 @@ public struct EmailValidatorAPI: EmailValidator {
                                                         "Content-Type": "application/json"
                                                     ],
                                                     body: .data(requestData)) else {
-            return eventLoop.makeFailedFuture(EmailValidationError.cannotEncodeData)
+            throw EmailValidationError.cannotEncodeData
         }
 
-        return httpClient.execute(request: request).flatMapThrowing { response in
-            guard let byteBuffer = response.body else {
-                throw EmailValidationError.responseBodyMissing
-            }
+        return try await withCheckedThrowingContinuation { continuation in
+            _ = httpClient.execute(request: request).flatMapThrowing { response in
+                guard let byteBuffer = response.body else {
+                    continuation.resume(throwing: EmailValidationError.responseBodyMissing)
+                    return
+                }
 
-            let responseData = Data(byteBuffer.readableBytesView)
-            return try jsonDecoder.decode(EmailValidationResponse.self, from: responseData)
+                let responseData = Data(byteBuffer.readableBytesView)
+                let data = try jsonDecoder.decode(EmailValidationResponse.self, from: responseData)
+                continuation.resume(returning: data)
+            }.flatMapErrorThrowing { err in
+                continuation.resume(throwing: err)
+                return
+            }
         }
     }
 }

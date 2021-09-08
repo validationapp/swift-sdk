@@ -9,8 +9,9 @@ import Foundation
 import NIO
 
 /// A protocol that defines an object that can validate an email
+@available(macOS 12.0.0, *)
 public protocol EmailValidator {
 
     /// Validates the email
-    func validate(email: String) -> EventLoopFuture<EmailValidationResponse>
+    func validate(email: String) async throws -> EmailValidationResponse
 }
