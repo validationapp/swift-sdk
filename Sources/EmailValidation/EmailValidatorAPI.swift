@@ -7,7 +7,8 @@
 
 import Foundation
 import AsyncHTTPClient
-import NIO
+import Logging
+import NIOCore
 
 /// An object that can validate an email using the `validation.app` service
 public struct EmailValidatorAPI: EmailValidator {
@@ -20,55 +21,71 @@ public struct EmailValidatorAPI: EmailValidator {
 
     /// The API Key for the `validation.app` service
     public let apiKey: String
-
-    /// The event loop to run the request on
-    public let eventLoop: EventLoop
+    
+    /// Logger for HTTPClient
+    public let logger: Logger?
+    
+    /// Request timeout amount
+    public let timeout: TimeAmount
 
     /// Initialize a new `EmailValidator`
-    public init(httpClient: HTTPClient, apiKey: String, eventLoop: EventLoop) {
+    public init(
+        httpClient: HTTPClient,
+        apiKey: String,
+        logger: Logger? = nil,
+        timeout: TimeAmount = .seconds(30)
+    ) {
         self.httpClient = httpClient
         self.apiKey = apiKey
-        self.eventLoop = eventLoop
+        self.logger = logger
+        self.timeout = timeout
     }
 
     /// Validate an email against the `validation.app` service
     /// - Parameter email: The email address to validate
     /// - Returns: An `EmailValidationResponse` object with the results of the API call
-    public func validate(email: String) -> EventLoopFuture<EmailValidationResponse> {
-        // Setup a date formatter to handle the custom date format from `validation.app`
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
-        // Create the JSONEncoder and JSONDecoder to handle the custom json data
-        let jsonEncoder = JSONEncoder()
-        let jsonDecoder = JSONDecoder()
-        jsonEncoder.dateEncodingStrategy = .formatted(dateFormatter)
-        jsonDecoder.dateDecodingStrategy = .formatted(dateFormatter)
-
+    public func validate(email: String) async throws -> EmailValidationResponse {
         // Format the content and create the `Data` object from it
         let content = EmailValidationRequest(email: email)
-        guard let requestData = try? jsonEncoder.encode(content) else {
-            return eventLoop.makeFailedFuture(EmailValidationError.cannotEncodeData)
+        guard let requestData = try? Self.jsonEncoder.encode(content) else {
+            throw EmailValidationError.cannotEncodeData
         }
 
         // Formulate the HTTPClient Request
-        guard let request = try? HTTPClient.Request(url: url,
-                                                    method: .POST,
-                                                    headers: [
-                                                        "Authorization" : "Bearer \(apiKey)",
-                                                        "Content-Type": "application/json"
-                                                    ],
-                                                    body: .data(requestData)) else {
-            return eventLoop.makeFailedFuture(EmailValidationError.cannotEncodeData)
+        var request = HTTPClientRequest(url: url)
+        request.method = .POST
+        request.body = .bytes(ByteBuffer(data: requestData))
+        request.headers = [
+            "Authorization" : "Bearer \(apiKey)",
+            "Content-Type": "application/json"
+        ]
+
+        let response = try await httpClient.execute(request, timeout: timeout, logger: logger)
+        guard let body = try? await response.body.collect(upTo: 1024 * 1024) else { // 1 MB
+            throw EmailValidationError.responseBodyMissing
         }
 
-        return httpClient.execute(request: request).flatMapThrowing { response in
-            guard let byteBuffer = response.body else {
-                throw EmailValidationError.responseBodyMissing
-            }
-
-            let responseData = Data(byteBuffer.readableBytesView)
-            return try jsonDecoder.decode(EmailValidationResponse.self, from: responseData)
-        }
+        return try Self.jsonDecoder.decode(EmailValidationResponse.self, from: body)
     }
+    
+    // Setup a date formatter to handle the custom date format from `validation.app`
+    static let dateFormatter: DateFormatter = {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return df
+    }()
+    
+    // Create JSONEncoder to handle the custom json data
+    static let jsonEncoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .formatted(dateFormatter)
+        return encoder
+    }()
+    
+    // Create JSONDecoder to handle the custom json data
+    static let jsonDecoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .formatted(dateFormatter)
+        return decoder
+    }()
 }

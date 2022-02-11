@@ -27,12 +27,11 @@ If you are in a Vapor app, you can do something like this:
 extension Request {
     var emailValidator: EmailValidator {
         if self.application.environment == .testing {
-            return MockEmailValidator(eventLoop: self.eventLoop)
+            return MockEmailValidator()
         } else {
             return EmailValidatorAPI(
                 httpClient: self.application.http.client.shared,
-                apiKey: "ADD_YOUR_API_KEY_HERE",
-                eventLoop: self.eventLoop
+                apiKey: "ADD_YOUR_API_KEY_HERE"
             )
         }
     }
@@ -42,14 +41,14 @@ extension Request {
 Once you have an `EmailValidator` object, you can call `.validate(email: "email-goes-here")` on it to get back a `EmailValidationResponse` object:
 
 ```swift
-let response = try validator.validate(email: "email@email.com").wait()
+let response = try await validator.validate(email: "email@email.com")
 XCTAssertEqual(response.data.request_email, "email@email.com") // True
 ```
 
 If you have the `EmailValidator` installed as an extension in your Vapor app, you can use it in routes:
 
 ```swift 
-func myRoute(req: Request) throws -> EventLoopFuture<EmailValidationResponse> {
-    req.emailValidator.validate(email: "email@email.com")
+func myRoute(req: Request) async throws -> EmailValidationResponse {
+    try await req.emailValidator.validate(email: "email@email.com")
 }
 ```
