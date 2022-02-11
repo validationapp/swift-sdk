@@ -9,9 +9,11 @@ import Foundation
 import NIO
 
 /// A mock email validator
-struct MockEmailValidator: EmailValidator {
+public struct MockEmailValidator: EmailValidator {
+    public init() {}
+    
     /// "Validates" the email
-    func validate(email: String) async throws -> EmailValidationResponse {
+    public func validate(email: String) async throws -> EmailValidationResponse {
         EmailValidationResponse(
             data: .init(
                 uuid: "",
