@@ -22,10 +22,10 @@ public struct EmailValidatorAPI: EmailValidator {
     /// The API Key for the `validation.app` service
     public let apiKey: String
     
-    /// Optional logger
+    /// Logger for HTTPClient
     public let logger: Logger?
     
-    /// Timeout
+    /// Request timeout amount
     public let timeout: TimeAmount?
 
     /// Initialize a new `EmailValidator`
@@ -60,7 +60,7 @@ public struct EmailValidatorAPI: EmailValidator {
             "Content-Type": "application/json"
         ]
 
-        let response = try await httpClient.execute(request, timeout: .seconds(30))
+        let response = try await httpClient.execute(request, timeout: timeout, logger: logger)
         guard let body = try? await response.body.collect(upTo: 1024 * 1024) else { // 1 MB
             throw EmailValidationError.responseBodyMissing
         }
