@@ -26,7 +26,7 @@ public struct EmailValidatorAPI: EmailValidator {
     public let logger: Logger?
     
     /// Request timeout amount
-    public let timeout: TimeAmount?
+    public let timeout: TimeAmount
 
     /// Initialize a new `EmailValidator`
     public init(

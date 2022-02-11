@@ -3,6 +3,7 @@ import AsyncHTTPClient
 @testable import EmailValidation
 
 final class EmailValidationTests: XCTestCase {
+    // This test hits network, need valid API key
 //    func testWorks() async throws {
 //        let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
 //        let validator = EmailValidatorAPI(httpClient: httpClient, apiKey: "ADD_YOUR_API_KEY_HERE")
