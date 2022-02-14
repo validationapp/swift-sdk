@@ -9,6 +9,7 @@ import Foundation
 import AsyncHTTPClient
 import Logging
 import NIOCore
+import NIOFoundationCompat
 
 /// An object that can validate an email using the `validation.app` service
 public struct EmailValidatorAPI: EmailValidator {
@@ -50,11 +51,13 @@ public struct EmailValidatorAPI: EmailValidator {
         guard let requestData = try? Self.jsonEncoder.encode(content) else {
             throw EmailValidationError.cannotEncodeData
         }
+        
+        let buffer = ByteBuffer(bytes: requestData)
 
         // Formulate the HTTPClient Request
         var request = HTTPClientRequest(url: url)
         request.method = .POST
-        request.body = .bytes(ByteBuffer(data: requestData))
+        request.body = .bytes(buffer)
         request.headers = [
             "Authorization" : "Bearer \(apiKey)",
             "Content-Type": "application/json"
@@ -65,6 +68,8 @@ public struct EmailValidatorAPI: EmailValidator {
             throw EmailValidationError.responseBodyMissing
         }
 
+        // we use an overload defined in `NIOFoundationCompat` for `decode(_:from:)` to
+        // efficiently decode from a `ByteBuffer`
         return try Self.jsonDecoder.decode(EmailValidationResponse.self, from: body)
     }
     
